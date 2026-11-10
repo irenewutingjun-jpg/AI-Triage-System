@@ -63,7 +63,11 @@ router.get('/', async (req, res) => {
         let items = latestPerPatient(observations.map(flatten));
         // minScore 比的是「近期最高分」，這樣「最新一筆低分、但剛剛有高分」的病人不會被濾掉；無法判讀的一律保留
         if (q.minScore !== null) {
-            items = items.filter(i => i.recentMaxScore === null || i.recentMaxScore >= q.minScore);
+            items = items.filter(i =>
+                i.urgencyScore === null ||
+                i.recentMaxScore === null ||
+                i.recentMaxScore >= q.minScore
+            );
         }
         items = sortItems(items, q.sort).slice(0, q.limit);
 
