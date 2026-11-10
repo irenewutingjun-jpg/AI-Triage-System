@@ -22,7 +22,7 @@
 
         <div v-if="listError" class="error-message">{{ listError }}</div>
         <div v-if="listTruncated" class="wl-warning">
-          ⚠ 清單可能不完整：資料量超過一次可整理的上限，有病人可能沒有列出。
+          ⚠ 清單可能不完整：查詢或顯示筆數已達上限，有病人可能沒有列出。
         </div>
 
         <div v-if="listLoading && !waitingList.length" class="wl-empty">載入候診清單中...</div>
