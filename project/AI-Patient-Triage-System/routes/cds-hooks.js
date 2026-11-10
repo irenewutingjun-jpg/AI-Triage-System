@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const router = express.Router();
 const { searchObservations, flatten, latestPerPatient } = require('../services/triageResults');
+const { TRIAGE_SYSTEM, TRIAGE_CODE } = require('../services/codes');
 require('dotenv').config();
 
 const CDS_WARNING_SCORE = 5;
@@ -113,8 +114,8 @@ router.post('/patient-triage-service', async (req, res) => {
                     source: {
                         label: "AI Triage System",
                         topic: {
-                            system: "TRIAGE_SYSTEM",
-                            code: "TRIAGE_CODE"
+                            system: TRIAGE_SYSTEM,
+                            code: TRIAGE_CODE
                         }
                     },
                     detail: `${summaryLine(latest)}\n${symptomsLine(latest)}\n${recentNote}(資料來源: 病人最新自述；AI 分數僅供參考，由醫護人員確認)`
