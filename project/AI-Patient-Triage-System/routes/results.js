@@ -69,13 +69,19 @@ router.get('/', async (req, res) => {
                 i.recentMaxScore >= q.minScore
             );
         }
+        const outputLimited = items.length > q.limit;
         items = sortItems(items, q.sort).slice(0, q.limit);
 
         // recentPeak 只給 CDS 卡片用，不屬於清單 API 的回傳欄位
         items = items.map(({ recentPeak, ...item }) => item);
 
         // 查不到資料是 200 加空陣列；FHIR 出錯才走下面的 502
-        return res.json({ success: true, count: items.length, truncated, items });
+        return res.json({
+            success: true,
+            count: items.length,
+            truncated: truncated || outputLimited,
+            items
+        });
     } catch (error) {
         console.error('[Results] FHIR 查詢失敗:', error.message);
         return res.status(502).json({ success: false, error: 'FHIR 查詢失敗，無法取得候診清單' });
