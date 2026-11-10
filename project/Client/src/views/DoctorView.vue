@@ -220,7 +220,7 @@ const getPatientRecord = async (id) => {
         },
         // 透過 prefetch 將剛查到的 FHIR 病人資料帶給 CDS 服務
         prefetch: {
-          patientToGreet: fhirPatient
+          patient: fhirPatient
         }
       };
 
