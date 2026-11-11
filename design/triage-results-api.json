@@ -1,0 +1,175 @@
+{
+  "name": "候診清單 API 規格",
+  "version": "0.2-draft",
+  "decisions": {
+    "onePerPatient": "每位病人只回最新一筆評估（選項 B）",
+    "singleEndpoint": "一支 API，條件全部用 query 參數控制",
+    "errorVsEmpty": "查無資料回 200 加空陣列；FHIR 連不上回 502，不可回空陣列",
+    "recentMaxScore": "每位病人另附「近期最高分」：該病人最新一筆之前 24 小時內（含最新一筆）的最高分，避免最新一筆低分蓋掉剛剛的高分",
+    "unreadableScore": "最新分數無法判讀時，urgencyScore 為 null、needsHuman 為 true，且 minScore 篩選會保留該病人。recentMaxScore 仍可取自近期其他有效紀錄，只有近期沒有有效分數時才為 null。",
+    "truncated": "FHIR 查詢最多整理 200 筆 Observation。若仍有未讀頁面、單頁超過剩餘容量，或候診清單因 limit 省略病人，truncated 為 true，前端應提示清單可能不完整。"
+  },
+  "endpoint": {
+    "method": "GET",
+    "path": "/api/triage/results",
+    "description": "取得病人的最新 AI 分流評估，供醫師頁顯示候診清單。"
+  },
+  "parameters": [
+    {
+      "name": "patientId",
+      "type": "string",
+      "required": false,
+      "fhirSearchParam": "subject",
+      "default": null,
+      "rule": "英數、連字號、句點，1–64 字",
+      "meaning": "只看某位病人；沒給則看全部病人"
+    },
+    {
+      "name": "minScore",
+      "type": "integer",
+      "required": false,
+      "fhirSearchParam": null,
+      "default": null,
+      "rule": "1–10 的整數",
+      "meaning": "只看「近期最高分」≥ 此值的病人（不是只比最新一筆）；無法判讀者一律保留"
+    },
+    {
+      "name": "limit",
+      "type": "integer",
+      "required": false,
+      "fhirSearchParam": null,
+      "default": 20,
+      "rule": "正整數，上限 50",
+      "meaning": "最多回幾位病人（每人只有一筆，整理完才計算）"
+    },
+    {
+      "name": "sort",
+      "type": "string",
+      "required": false,
+      "fhirSearchParam": "_sort",
+      "default": "date",
+      "allowedValues": ["date", "score"],
+      "meaning": "date：最新評估在前；score：最新一筆需人工介入者在前，其次近期最高分高到低，再其次時間新到舊"
+    }
+  ],
+  "fhirQuery": {
+    "resource": "Observation",
+    "codes": [
+      "http://example.org/CodeSystem/ai-triage|urgency-score",
+      "http://loinc.org|80615-8"
+    ],
+    "note": "新舊兩種代碼都要查；依 Bundle 的 next 連結分頁，最多抓 200 筆；minScore 無法在 FHIR 端篩（會破壞「最新一筆」的判斷），改在後端篩",
+    "headers": {
+      "Cache-Control": "no-cache"
+    },
+    "fixedParams": {
+      "_sort": "-date",
+      "_count": 100
+    },
+    "assumptions": [
+      "一次最多抓 200 筆 Observation（暫定，需實測），超過就 truncated=true",
+      "需人工介入存在 component 裡，無法在 FHIR 端排序，所以在後端整理後再排序",
+      "「近期」以病人最新一筆為基準往前 24 小時，不是以現在為基準"
+    ]
+  },
+  "processingSteps": [
+    "檢查參數，不合法回 400",
+    "組出 FHIR 查詢並分頁抓取，失敗回 502",
+    "把 Observation 攤平成 items 的欄位",
+    "每位病人只留 assessedAt 最新的一筆，並算出 recentMaxScore",
+    "有 minScore 就依 recentMaxScore 篩選",
+    "依 sort 排序",
+    "取前 limit 位並回傳（附 truncated）"
+  ],
+  "itemFields": {
+    "observationId": "FHIR Observation 的 id",
+    "patientId": "病人識別碼",
+    "urgencyScore": "1–10 的整數",
+    "needsHuman": "是否需人工介入（布林值）",
+    "emotion": "AI 判斷的核心情緒",
+    "symptoms": "症狀（字串陣列）",
+    "summary": "給醫師的一句話摘要（已去掉 AI Summary: 前綴）",
+    "assessedAt": "評估時間（ISO 8601）",
+    "recentMaxScore": "最新一筆之前 24 小時內（含最新一筆）的最高分；全部無法判讀時為 null"
+  },
+  "responses": {
+    "200": {
+      "description": "成功；查無資料時 items 為空陣列",
+      "example": {
+        "success": true,
+        "count": 3,
+        "items": [
+          {
+            "observationId": "158405",
+            "patientId": "patient-tw-lily01",
+            "urgencyScore": 10,
+            "needsHuman": true,
+            "emotion": "恐慌",
+            "symptoms": ["胸口悶痛", "冒冷汗"],
+            "summary": "病人胸口悶痛兩小時並冒冷汗，疑似急性心臟問題，需立即處理。",
+            "assessedAt": "2026-10-20T12:30:00Z",
+            "recentMaxScore": 10
+          },
+          {
+            "observationId": "158410",
+            "patientId": "patient-tw-demo02",
+            "urgencyScore": 9,
+            "needsHuman": true,
+            "emotion": "隱忍",
+            "symptoms": ["胸悶", "手舉不太起來"],
+            "summary": "病人輕描淡寫，但胸悶合併手臂無力屬危險徵兆。",
+            "assessedAt": "2026-10-20T12:35:00Z",
+            "recentMaxScore": 9
+          },
+          {
+            "observationId": "158408",
+            "patientId": "patient-tw-demo03",
+            "urgencyScore": 2,
+            "needsHuman": false,
+            "emotion": "平靜",
+            "symptoms": ["喉嚨痛"],
+            "summary": "輕微喉嚨痛，可預約門診。",
+            "assessedAt": "2026-10-20T12:33:00Z",
+            "recentMaxScore": 2
+          }
+        ],
+        "truncated": false
+      }
+    },
+    "200-empty": {
+      "description": "沒有符合條件的資料",
+      "example": {
+        "success": true,
+        "count": 0,
+        "items": [],
+        "truncated": false
+      }
+    },
+    "400": {
+      "description": "參數不合法",
+      "example": {
+        "success": false,
+        "error": "minScore 必須是 1 到 10 的整數"
+      }
+    },
+    "502": {
+      "description": "FHIR 連不上或查詢失敗；不可回空陣列",
+      "example": {
+        "success": false,
+        "error": "FHIR 查詢失敗，無法取得候診清單"
+      }
+    }
+  },
+  "requestExamples": [
+    "GET /api/triage/results",
+    "GET /api/triage/results?sort=score&limit=10",
+    "GET /api/triage/results?minScore=5&sort=score",
+    "GET /api/triage/results?patientId=patient-tw-lily01"
+  ],
+  "openQuestions": [
+    "已處置狀態存在哪裡（Task 或其他）",
+    "是否做真正的排隊（等候時間與插隊）",
+    "追問式問診是否列入範圍",
+    "近期的時間窗是否固定 24 小時"
+  ]
+}
