@@ -24,6 +24,12 @@ function validate(parsed) {
     if (!Number.isInteger(s) || s < 1 || s > 10) return `urgency_score 不是 1-10 的整數（收到 ${JSON.stringify(s)}）`;
     if (typeof parsed.needs_human_intervention !== 'boolean') return 'needs_human_intervention 不是布林值';
     if (typeof parsed.summary !== 'string' || !parsed.summary.trim()) return 'summary 是空的';
+    if (
+        !Array.isArray(parsed.symptoms) ||
+        !parsed.symptoms.every(s => typeof s === 'string' && s.trim().length > 0)
+    ) {
+        return 'symptoms 必須是由非空白字串組成的陣列';
+    }
     return null;
 }
 
