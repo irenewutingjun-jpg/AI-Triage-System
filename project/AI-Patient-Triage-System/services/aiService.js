@@ -77,8 +77,11 @@ async function analyzePatientFeedback(patientText) {
             parsed.emotion = typeof parsed.emotion === 'string' ? parsed.emotion : '未標示';
             return parsed;
         } catch (error) {
-            lastReason = error.message;
-            console.error(`[AI] 第 ${attempt} 次呼叫失敗：`, error.message);
+            const status = error?.status;
+            lastReason = Number.isInteger(status)
+                ? `Gemini 呼叫失敗（HTTP ${status}）`
+                : 'Gemini 呼叫失敗，未取得 HTTP 狀態碼';
+            console.error(`[AI] 第 ${attempt} 次呼叫失敗`, lastReason);        
         }
     }
     throw new Error(`AI 分析失敗（${lastReason}），請稍後重試並由人員確認`);
