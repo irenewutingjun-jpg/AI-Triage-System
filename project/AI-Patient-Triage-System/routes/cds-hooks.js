@@ -63,7 +63,7 @@ router.get('/', (req, res) => {
 
 // Service Endpoint: patient-view
 router.post('/patient-triage-service', async (req, res) => {
-    const context = req.body.context || {};
+    const context = req.body?.context || {};
     const patientId = context.patientId;
 
     if (!patientId) {
