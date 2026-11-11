@@ -33,7 +33,7 @@
 | `limit` | 最多回幾位病人（1–50） | 20 |
 | `sort` | `date`：時間新到舊；`score`：最新一筆需人工者在前，其次近期最高分，再其次時間 | `date` |
 
-回傳：`success`、`count`、`truncated`（FHIR 還有資料沒抓到時為 true，清單可能不完整）、`items`。
+回傳：`success`、`count`、`truncated`（FHIR 查詢有未讀或超額的紀錄，或候診清單因 limit 省略病人時，`truncated` 為 true，前端會提示清單可能不完整。）、`items`。
 
 每筆 item：`observationId`、`patientId`、`urgencyScore`、`needsHuman`、`emotion`、`symptoms`、`summary`、`assessedAt`、`recentMaxScore`。
 
@@ -42,7 +42,7 @@
 - 參數不合法 → 400，附說明
 - 查不到資料 → 200，`items` 為空陣列
 - FHIR 連不上 → 502，**不可**回空陣列
-- 分數不是 1–10 的整數 → `urgencyScore` 與 `recentMaxScore` 為 null、`needsHuman` 強制 true，不當成低風險
+- 分數不是 1–10 的整數 → 最新分數無法判讀時，`urgencyScore` 為 null、`needsHuman` 為 true，`minScore` 篩選仍保留該病人。`recentMaxScore` 從近期有效紀錄計算，只有沒有有效分數時才為 null。
 
 ## 4. CDS 卡片規則
 
