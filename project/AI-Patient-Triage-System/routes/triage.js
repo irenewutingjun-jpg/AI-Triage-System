@@ -27,7 +27,6 @@ router.post('/analyze', async (req, res) => {
     try {
         // 1. AI 分析（失敗會丟錯誤，不會回 0 分）
         const aiResult = await analyzePatientFeedback(patientText);
-        console.log("AI 分析結果:", aiResult);
 
         // 2. 存入 FHIR（存不進去就回 502，前端會看到錯誤，不會假裝已存檔）
         const fhirId = await saveToFHIR(aiResult, patientId);
