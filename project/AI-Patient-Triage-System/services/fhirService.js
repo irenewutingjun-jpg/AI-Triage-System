@@ -47,10 +47,6 @@ async function saveToFHIR(analysisResult, patientId) {
             // 伺服器有回應，但狀態碼不在 2xx 範圍內
             console.error("[FHIR] 上傳失敗 - 伺服器回應:");
             console.error("狀態碼 (Status):", error.response.status);
-
-            // 這是最關鍵的部分，FHIR 的錯誤細節都在這裡
-            // 使用 JSON.stringify 讓輸出的物件排版易讀
-            console.error("錯誤內容 (Body):", JSON.stringify(error.response.data, null, 2));
         } else if (error.request) {
             // 請求已發出，但沒有收到回應 (例如網路斷線、伺服器掛掉連不上)
             console.error("[FHIR] 上傳失敗 - 無回應 (Network Error):", error.message);
