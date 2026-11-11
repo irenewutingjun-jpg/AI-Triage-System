@@ -5,6 +5,7 @@ const { TRIAGE_SYSTEM, TRIAGE_CODE, LEGACY_SYSTEM, LEGACY_CODE } = require('./co
 
 const PAGE_SIZE = 100;   // 每次向 FHIR 要幾筆
 const BATCH_SIZE = 200;  // 最多抓幾筆 Observation 來整理（暫定值，需實測）
+const FHIR_QUERY_TIMEOUT_MS = 15000;
 // 「近期」= 該病人最新一筆之前 24 小時內（以最新一筆為基準，不是以現在為基準）
 const RECENT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -24,14 +25,21 @@ async function searchObservations(patientId) {
     };
     if (patientId) params.subject = `Patient/${patientId}`;
 
-    let res = await axios.get(`${process.env.FHIR_BASE_URL}/Observation`, { params, headers });
+    let res = await axios.get(`${process.env.FHIR_BASE_URL}/Observation`, {
+        params,
+        headers,
+        timeout: FHIR_QUERY_TIMEOUT_MS
+    });
     const observations = [];
     let next;
     while (true) {
         for (const e of res.data.entry || []) observations.push(e.resource);
         next = (res.data.link || []).find(l => l.relation === 'next')?.url;
         if (!next || observations.length >= BATCH_SIZE) break;
-        res = await axios.get(next, { headers });
+        res = await axios.get(next, {
+            headers,
+            timeout: FHIR_QUERY_TIMEOUT_MS
+        });
     }
     // 還有下一頁卻不抓了 = 清單可能不完整，要讓前端知道
     return { observations, truncated: Boolean(next) };
