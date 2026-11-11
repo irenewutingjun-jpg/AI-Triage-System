@@ -30,19 +30,26 @@ async function searchObservations(patientId) {
         headers,
         timeout: FHIR_QUERY_TIMEOUT_MS
     });
+
     const observations = [];
-    let next;
+    let truncated = false;
+
     while (true) {
-        for (const e of res.data.entry || []) observations.push(e.resource);
-        next = (res.data.link || []).find(l => l.relation === 'next')?.url;
+        const entries = res.data.entry || [];
+        const remaining = BATCH_SIZE - observations.length;
+
+        for (const entry of entries.slice(0, remaining)) {
+            observations.push(entry.resource);
+        }
+        const next = (res.data.link || []).find(link => link.relation === 'next')?.url;
+        truncated = entries.length > remaining || Boolean(next);
         if (!next || observations.length >= BATCH_SIZE) break;
         res = await axios.get(next, {
             headers,
             timeout: FHIR_QUERY_TIMEOUT_MS
         });
     }
-    // 還有下一頁卻不抓了 = 清單可能不完整，要讓前端知道
-    return { observations, truncated: Boolean(next) };
+    return { observations, truncated };
 }
 
 // 把 Observation 攤平成簡單資料，前端與 CDS 都不必解析 FHIR
