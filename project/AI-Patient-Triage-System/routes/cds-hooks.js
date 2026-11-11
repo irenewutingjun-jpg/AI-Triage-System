@@ -66,10 +66,9 @@ router.post('/patient-triage-service', async (req, res) => {
     const context = req.body?.context || {};
     const patientId = context.patientId;
 
-    if (!patientId) {
-        return res.status(400).json({ error: "Missing patientId" });
+    if (typeof patientId !== 'string' || !/^[A-Za-z0-9.\-]{1,64}$/.test(patientId)) {
+        return res.status(400).json({ error: "Invalid or missing patientId" });
     }
-
     console.log(`[CDS Hook] 醫師正在查看病人: ${patientId}`);
 
     let cards = [];
