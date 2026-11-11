@@ -1,0 +1,63 @@
+﻿
+
+【要做什麼】門診候診時，病人輸入一句話描述不適，AI 給急迫分數，醫師頁顯示警示卡
+【API】POST /api/triage/analyze；輸入：JSON body：patientId、patientText
+【請求範例】{"patientId":"patient-tw-001","patientText":"胸口悶痛兩小時，走路會喘"}
+【錯誤輸入範例，應回 400】{}　｜　{"patientId":"x","patientText":"測試"}
+【架構圖】
+flowchart LR
+  subgraph faces[前端介面]
+    P["病人頁"]
+    D["醫師頁"]
+  end
+  subgraph brain[後端服務]
+    T["/api/triage/analyze"]
+    C["CDS 服務"]
+  end
+  subgraph organs[外部服務與資料儲存]
+    G["Gemini"]
+    F[("FHIR Server")]
+  end
+  P -->|patientId、patientText| T
+  T -->|主訴 + Prompt| G
+  G -->|urgency_score、needs_human、summary| T
+  T -->|Observation：code、valueQuantity、component| F
+  D -->|patient-view、patientId| C
+  C -->|查最新一筆 Observation| F
+  C -->|卡片 info / warning / critical| D
+【細部流程：提交症狀並儲存評估結果】
+flowchart LR
+  S(["開始"])
+  I[/"輸入 patientId、patientText"/]
+  V1{"輸入合法？"}
+  E1(["回 400：輸入不合法"])
+  B["組合 Prompt"]
+  G["呼叫 Gemini API"]
+  V3{"成功且格式正確？"}
+  E3(["回 502：評估失敗"])
+  O["轉成 Observation"]
+  F["寫入 FHIR Server"]
+  V4{"FHIR 回 201？"}
+  E4(["回 502：儲存失敗"])
+  R[/"回 200：分數與 id"/]
+  X(["結束"])
+  S --> I
+  I --> V1
+  V1 -->|是| B
+  V1 -->|否| E1
+  B --> G
+  G -->|JSON| V3
+  V3 -->|是| O
+  V3 -->|否| E3
+  O --> F
+  F --> V4
+  V4 -->|是| R
+  V4 -->|否| E4
+  R --> X
+【資料】識別碼格式 patient-tw-你的代號；存放位置 FHIR Observation；資料代碼 urgency-score（教學用 CodeSystem ai-triage）；主要數值放 valueQuantity.value，整數 1–10；needs_human 放 component（component.code 用 needs-human，值放 valueBoolean）；summary 放 note。
+【技術】Node 22、Express 5、Vue 3 + Vite、axios；FHIR Server https://hapi.fhir.tw/fhir；AI 使用 Gemini gemini-2.5-flash-lite，回應需設定 responseSchema。SDK：沿用 A3-8 Demo 的人維持 @google/generative-ai 0.24（Demo 的 aiService.js 寫法，可執行，官方已標示停止更新）；新建專案改用官方現行的 @google/genai，呼叫方式不同，請照官方文件撰寫，不要只改套件名稱。
+【限制】金鑰只從 .env 讀取；不使用未列出的套件；不修改前端；外部服務（AI、資料儲存）呼叫失敗回傳 502，不得回傳預設分數。
+【驗收】curl 送合法輸入回 200，body 有固定分數；空 body 回 400 並附說明；識別碼格式錯誤回 400。第一階段不呼叫 AI、不寫入資料儲存；之後每個階段再加上該階段的驗收條件。
+【本階段範圍】第一階段：用 curl 或 Postman 送出請求 → /api/triage/analyze 接收並檢查輸入，合法回 200 與固定分數，不合法回 400 並附說明；不呼叫 Gemini；不寫入 FHIR Server；不修改前端。
+請先說明實作方式與會修改的檔案，我確認後再請你撰寫程式。
+
