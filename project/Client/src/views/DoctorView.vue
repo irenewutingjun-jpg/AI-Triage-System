@@ -169,11 +169,11 @@ onMounted(async () => {
 // 2. 使用者操作階段 (觸發 Service POST)
 // ==========================================
 const getPatientRecord = async (id) => {
-  if (!id) {
-    error.value = '請輸入病人 ID';
+  if (typeof id !== 'string' || !/^[A-Za-z0-9.\-]{1,64}$/.test(id)) {
+    error.value = '請輸入有效的病人 ID（1 到 64 個英文字母、數字、句點或連字號）';
     return;
   }
-  
+    
   loading.value = true;
   error.value = null;
   patientData.value = null;
